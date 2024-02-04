@@ -12,6 +12,6 @@ export const AppDataSource = new DataSource({
   database: 'war-thunder-replay-db',
   entities: [Session, Indicators, Hudmsg, Gamechat],
   migrations: [Migration1707019132222],
-  logging: true,
+  //logging: true,
   synchronize: true,
 });

@@ -16,7 +16,7 @@ async function insertNewSession() {
 
 const client = thunderClient();
 const maxRetries = 50;
-export async function detectSession() {
+export async function detectSession(): Promise<WarThunderSession> {
   return new Promise((resolve, reject) => {
     // use ora to start a spinner
     // and then stop it once the map info call is successful
@@ -27,6 +27,11 @@ export async function detectSession() {
       client
         .getMapInfo()
         .then(async (res) => {
+          if (res.valid === false) {
+            spinner.color = 'yellow';
+            spinner.prefixText = '⚠️';
+            return;
+          }
           spinner.succeed('War Thunder is ready');
           clearInterval(interval);
           const newSession = await insertNewSession();
@@ -54,10 +59,14 @@ class WarThunderSession {
     this.session = session;
   }
 
-  async initialize() {
+  async record() {
     const poller = new Poller(this.session);
     this.spinner.succeed('Session Initialized');
-    return await poller.poll();
+    return await poller.poll().catch(() => {
+      this.spinner.start('Ending Session');
+      AppDataSource.manager.update(Session, this.session.id, { end_date: new Date(Date.now()) });
+      this.spinner.succeed('Session Ended');
+    });
   }
 }
 
@@ -66,12 +75,14 @@ class WarThunderSession {
  * and then saves it to the database
  */
 class Poller {
+  spinner: Ora;
   lastGamechat: number;
   lastEventId: number;
   lastDamage: number;
   session: Session;
   interval?: NodeJS.Timeout;
   constructor(session: Session) {
+    this.spinner = ora('Polling for Game Data').start();
     this.lastGamechat = 0;
     this.lastEventId = 0;
     this.lastDamage = 0;
@@ -82,9 +93,11 @@ class Poller {
       this.interval = setInterval(async () => {
         try {
           await this.scrape();
+          this.spinner.info('Scraped War Thunder API successfully. Polling again in 5 seconds.');
+          this.spinner.start('Polling for Game Data');
         } catch (err) {
+          this.spinner.fail('Error scraping War Thunder API');
           clearInterval(this.interval);
-          console.error('Error scraping War Thunder API, canceling scrapes and throwing...');
           reject(err);
         }
       }, 5000);
@@ -92,6 +105,10 @@ class Poller {
   }
 
   async scrape() {
+    const mapInfo = await client.getMapInfo();
+    if (!mapInfo.valid) {
+      throw new Error('MapInfo is no longer valid! Ending Session.');
+    }
     const hudmsg = await client.getHudmsg({ lastDmg: this.lastDamage, lastEvt: this.lastEventId });
     this.saveHudmsg(hudmsg);
     const indicators = await client.getIndicators();
