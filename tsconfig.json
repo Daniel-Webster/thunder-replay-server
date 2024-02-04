@@ -1,5 +1,4 @@
-{
-  "compilerOptions": {
+{   "compilerOptions": {
     "target": "ES6",
     "module": "NodeNext",
     "strict": true,

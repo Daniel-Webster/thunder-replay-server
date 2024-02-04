@@ -36,7 +36,7 @@ Table names are as follows:
 | Column Name | Data Type | Description                                                    |
 | ----------- | --------- | -------------------------------------------------------------- |
 | id          | SERIAL    | Unique `primary key` for the indicator                         |
-| session_id  | INTEGER   | `foreign key` to the `sessions` table                          |
+| session_id  | INTEGER   | `foreign key` to the `sessions` table `indexed`                |
 | data        | JSONB     | The response data from the game for the `/indicators` endpoint |
 | timestamp   | TIMESTAMP | Date and time the indicator was recorded                       |
 

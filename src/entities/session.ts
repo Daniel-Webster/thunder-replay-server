@@ -1,15 +1,26 @@
 // src/entities/Session.ts
 
-import { Entity, PrimaryGeneratedColumn, Column } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from "typeorm";
+import { Indicators } from "./indicators";
 
 @Entity()
 export class Session {
   @PrimaryGeneratedColumn()
   id?: number;
 
-  @Column()
-  length?: number;
+  @Column({ type: "text", nullable: true })
+  session_name: string;
+
+  @Column({ type: "timestamp", nullable: true })
+  end_date?: number;
 
   @Column({ type: "timestamp", default: () => "CURRENT_TIMESTAMP" })
-  date?: Date;
+  start_date?: Date;
+
+  @OneToMany(() => Indicators, (indicators) => indicators.session_id)
+  indicators?: Indicators[];
+
+  constructor(session_name: string) {
+    this.session_name = session_name;
+  }
 }
