@@ -1,11 +1,11 @@
 import { AppDataSource } from './data-source';
-import { detectSession } from './session-detect';
+import { waitForSession } from './session-detect';
 
-async function recordSessions(): Promise<void> {
-  return detectSession().then(async (session) => {
+async function waitForAndRecordSessions(): Promise<void> {
+  return waitForSession().then(async (session) => {
     await session.record();
-    return recordSessions();
+    return waitForAndRecordSessions();
   });
 }
 
-AppDataSource.initialize().then(recordSessions);
+AppDataSource.initialize().then(waitForAndRecordSessions);

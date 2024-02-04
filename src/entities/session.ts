@@ -5,7 +5,7 @@ import { Indicators } from './indicators';
 import { Hudmsg } from './hudmsg';
 import { Gamechat } from './gamechat';
 
-@Entity()
+@Entity({ name: 'session' })
 export class Session {
   @PrimaryGeneratedColumn()
   id?: number;
@@ -18,6 +18,9 @@ export class Session {
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   start_date?: Date;
+
+  @Column({ type: 'text', nullable: true })
+  mission_status?: string;
 
   @OneToMany(() => Indicators, (indicators) => indicators.session_id)
   indicators?: Indicators[];

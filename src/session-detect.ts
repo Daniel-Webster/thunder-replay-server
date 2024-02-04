@@ -1,22 +1,19 @@
 // wait for the localhost api to be ready
 // this will be when it stops throwing errors on the MapInfo call
 
-import { MapInfo, Hudmsg, thunderClient, Indicators } from 'thunderscript-client';
-import { Hudmsg as HudmsgEntity, Indicators as IndicatorsEntity, Session } from './entities';
+import { MapInfo, Hudmsg, thunderClient, Indicators, GameChat } from 'thunderscript-client';
+import {
+  Hudmsg as HudmsgEntity,
+  Indicators as IndicatorsEntity,
+  Gamechat as GameChatEntity,
+  Session,
+} from './entities';
 import { AppDataSource } from './data-source';
 import ora, { Ora } from 'ora';
 
-async function insertNewSession() {
-  console.log('Inserting a new session into the database...');
-  const sesh = new Session(process.argv[2] || `Test Session Name - ${Date.now().toLocaleString()}`);
-  await AppDataSource.manager.save(sesh);
-  console.log('Saved a new session with id: ' + sesh.id);
-  return sesh;
-}
-
 const client = thunderClient();
 const maxRetries = 50;
-export async function detectSession(): Promise<WarThunderSession> {
+export async function waitForSession(): Promise<WarThunderSession> {
   return new Promise((resolve, reject) => {
     // use ora to start a spinner
     // and then stop it once the map info call is successful
@@ -34,8 +31,9 @@ export async function detectSession(): Promise<WarThunderSession> {
           }
           spinner.succeed('War Thunder is ready');
           clearInterval(interval);
-          const newSession = await insertNewSession();
-          resolve(new WarThunderSession(newSession, res));
+          const thunderSession = new WarThunderSession(res);
+          await thunderSession.insertNewSession();
+          resolve(thunderSession);
         })
         .catch((err) => {
           if (count >= maxRetries) {
@@ -52,21 +50,44 @@ export async function detectSession(): Promise<WarThunderSession> {
 class WarThunderSession {
   spinner: Ora;
   mapInfo: MapInfo;
-  session: Session;
-  constructor(session: Session, mapInfo: MapInfo) {
+  session?: Session;
+  constructor(mapInfo: MapInfo) {
     this.spinner = ora('Initializing Sesson').start();
     this.mapInfo = mapInfo;
-    this.session = session;
+  }
+  async insertNewSession() {
+    const mission = await client.getMission();
+    const sesh = new Session(
+      process.argv[2] || `Test Session Name - ${new Date(Date.now()).toISOString()}`,
+    );
+    sesh.mission_status = mission.status;
+    sesh.start_date = new Date(Date.now());
+    this.spinner.info(`Inserting new session: ${sesh.session_name}`);
+    this.session = await AppDataSource.manager.save(sesh);
   }
 
   async record() {
+    if (!this.session) {
+      throw new Error('Session failed to initialize');
+    }
     const poller = new Poller(this.session);
     this.spinner.succeed('Session Initialized');
-    return await poller.poll().catch(() => {
-      this.spinner.start('Ending Session');
-      AppDataSource.manager.update(Session, this.session.id, { end_date: new Date(Date.now()) });
-      this.spinner.succeed('Session Ended');
+    await poller.poll();
+    await this.end();
+  }
+  async end() {
+    const mission = await client.getMission();
+    this.spinner.start('Ending Session');
+    AppDataSource.manager.update(Session, this.session?.id, {
+      end_date: new Date(Date.now()),
+      mission_status: mission.status,
     });
+    AppDataSource.manager
+      .count(HudmsgEntity, { where: { session_id: this.session } })
+      .then((count) => {
+        this.spinner.info(`Session ended with ${count} hudmsgs`);
+      });
+    this.spinner.succeed('Session Ended');
   }
 }
 
@@ -88,16 +109,20 @@ class Poller {
     this.lastDamage = 0;
     this.session = session;
   }
-  async poll() {
-    return new Promise((_resolve, reject) => {
+  async poll(): Promise<void> {
+    return new Promise((resolve, reject) => {
       this.interval = setInterval(async () => {
         try {
-          await this.scrape();
-          this.spinner.info('Scraped War Thunder API successfully. Polling again in 5 seconds.');
           this.spinner.start('Polling for Game Data');
+          const { done } = await this.scrape();
+          if (done) {
+            this.cancel();
+            this.spinner.succeed('Detected end of game. Ending session.');
+            resolve();
+          }
         } catch (err) {
           this.spinner.fail('Error scraping War Thunder API');
-          clearInterval(this.interval);
+          this.cancel();
           reject(err);
         }
       }, 5000);
@@ -107,12 +132,22 @@ class Poller {
   async scrape() {
     const mapInfo = await client.getMapInfo();
     if (!mapInfo.valid) {
-      throw new Error('MapInfo is no longer valid! Ending Session.');
+      return {
+        done: true,
+      };
     }
     const hudmsg = await client.getHudmsg({ lastDmg: this.lastDamage, lastEvt: this.lastEventId });
-    this.saveHudmsg(hudmsg);
+    await this.saveHudmsg(hudmsg);
+    this.updateDamageIdIfNewer(hudmsg);
     const indicators = await client.getIndicators();
-    this.saveIndicators(indicators);
+    await this.saveIndicators(indicators);
+    const gamechat = await client.getGameChat(this.lastGamechat);
+    this.updateGamechatIdIfNewer(gamechat);
+    await this.saveGamechat(gamechat);
+    this.spinner.info('Scraped War Thunder API successfully. Polling again in 5 seconds.');
+    return {
+      done: false,
+    };
   }
 
   async saveHudmsg(hudmsg: Hudmsg) {
@@ -121,13 +156,37 @@ class Poller {
     await AppDataSource.manager.save(hudmsgEntity);
   }
 
+  updateDamageIdIfNewer(hudmsg: Hudmsg) {
+    if (hudmsg.damage?.length) {
+      const lastDmg = hudmsg.damage[hudmsg.damage.length - 1]?.id;
+      if (lastDmg && lastDmg > this.lastDamage) {
+        this.lastDamage = lastDmg;
+      }
+    }
+  }
+
   async saveIndicators(indicators: Indicators) {
     // save the hudmsg to the database
     const indicatorsEntity = new IndicatorsEntity(this.session, indicators);
     await AppDataSource.manager.save(indicatorsEntity);
   }
 
-  async cancel() {
+  async saveGamechat(gamechat: GameChat) {
+    // save the hudmsg to the database
+    const gamechatEntity = new GameChatEntity(this.session, gamechat);
+    await AppDataSource.manager.save(gamechatEntity);
+  }
+
+  updateGamechatIdIfNewer(gamechat: GameChat) {
+    if (gamechat?.length) {
+      const lastGamechat = gamechat[gamechat.length - 1].id;
+      if (lastGamechat && lastGamechat > this.lastGamechat) {
+        this.lastGamechat = lastGamechat;
+      }
+    }
+  }
+
+  cancel() {
     clearInterval(this.interval);
   }
 }
