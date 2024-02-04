@@ -1,27 +1,32 @@
-{   "compilerOptions": {
-    "target": "ES6",
-    "module": "NodeNext",
-    "strict": true,
-    "esModuleInterop": true,
-    "moduleResolution": "NodeNext",
-    "emitDecoratorMetadata": true,
+{
+  "compilerOptions": {
+    "declaration": false,
     "experimentalDecorators": true,
-    "skipLibCheck": true,
+    "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "declaration": true,
-    "outDir": "./dist",
-    "baseUrl": "./src", // or the directory where your source files reside
-    "paths": {
-      "*": [
-        "src/*"
-      ] // adjust this to your folder structure if necessary
-    }
+    "importHelpers": false,
+    "incremental": true,
+    "isolatedModules": true,
+    "module": "ES2020",
+    "moduleResolution": "node",
+    "noEmit": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "pretty": true,
+    "resolveJsonModule": true,
+    "strict": true,
+    "strictBindCallApply": true,
+    "strictFunctionTypes": true,
+    "strictNullChecks": true,
+    "strictPropertyInitialization": true,
+    "stripInternal": true
   },
   "include": [
     "src/**/*.ts" // adjust this to match your folder structure
   ],
-  "exclude": [
-    "node_modules",
-    "**/*.test.ts"
-  ]
+  "exclude": ["node_modules", "**/*.test.ts"]
 }
