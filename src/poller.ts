@@ -1,7 +1,7 @@
 // wait for the localhost api to be ready
 // this will be when it stops throwing errors on the MapInfo call
 
-import { MapInfo, Hudmsg, thunderClient, Indicators, GameChat } from 'thunderscript-client';
+import { Hudmsg, thunderClient, Indicators, GameChat } from 'thunderscript-client';
 import {
   Hudmsg as HudmsgEntity,
   Indicators as IndicatorsEntity,
@@ -11,91 +11,12 @@ import {
 import { AppDataSource } from './data-source';
 import ora, { Ora } from 'ora';
 
-const client = thunderClient();
-const maxRetries = 50;
-export async function waitForSession(): Promise<WarThunderSession> {
-  return new Promise((resolve, reject) => {
-    // use ora to start a spinner
-    // and then stop it once the map info call is successful
-    const spinner = ora('Waiting for War Thunder').start();
-    let count = 0;
-
-    const interval = setInterval(() => {
-      client
-        .getMapInfo()
-        .then(async (res) => {
-          if (res.valid === false) {
-            spinner.color = 'yellow';
-            spinner.prefixText = '⚠️';
-            return;
-          }
-          spinner.succeed('War Thunder is ready');
-          clearInterval(interval);
-          const thunderSession = new WarThunderSession(res);
-          await thunderSession.insertNewSession();
-          resolve(thunderSession);
-        })
-        .catch((err) => {
-          if (count >= maxRetries) {
-            spinner.fail('War Thunder is not ready passed max retries');
-            clearInterval(interval);
-            reject(err);
-          }
-          count++;
-        });
-    }, 5000);
-  });
-}
-
-class WarThunderSession {
-  spinner: Ora;
-  mapInfo: MapInfo;
-  session?: Session;
-  constructor(mapInfo: MapInfo) {
-    this.spinner = ora('Initializing Sesson').start();
-    this.mapInfo = mapInfo;
-  }
-  async insertNewSession() {
-    const mission = await client.getMission();
-    const sesh = new Session(
-      process.argv[2] || `Test Session Name - ${new Date(Date.now()).toISOString()}`,
-    );
-    sesh.mission_status = mission.status;
-    sesh.start_date = new Date(Date.now());
-    this.spinner.info(`Inserting new session: ${sesh.session_name}`);
-    this.session = await AppDataSource.manager.save(sesh);
-  }
-
-  async record() {
-    if (!this.session) {
-      throw new Error('Session failed to initialize');
-    }
-    const poller = new Poller(this.session);
-    this.spinner.succeed('Session Initialized');
-    await poller.poll();
-    await this.end();
-  }
-  async end() {
-    const mission = await client.getMission();
-    this.spinner.start('Ending Session');
-    AppDataSource.manager.update(Session, this.session?.id, {
-      end_date: new Date(Date.now()),
-      mission_status: mission.status,
-    });
-    AppDataSource.manager
-      .count(HudmsgEntity, { where: { session_id: this.session } })
-      .then((count) => {
-        this.spinner.info(`Session ended with ${count} hudmsgs`);
-      });
-    this.spinner.succeed('Session Ended');
-  }
-}
-
+export const client = thunderClient('http://localhost:9222');
 /**
  * Uses the War Thunder API to scrape the session data
  * and then saves it to the database
  */
-class Poller {
+export class Poller {
   spinner: Ora;
   lastGamechat: number;
   lastEventId: number;

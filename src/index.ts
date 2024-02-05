@@ -1,5 +1,5 @@
 import { AppDataSource } from './data-source';
-import { waitForSession } from './session-detect';
+import { waitForSession } from './waitForSession';
 
 async function waitForAndRecordSessions(): Promise<void> {
   return waitForSession().then(async (session) => {
