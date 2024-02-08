@@ -6,8 +6,12 @@
   "repository": "https://github.com/Daniel-Webster/thunder-replay-server.git",
   "author": "Daniel Webster <danielwebsterps2@gmail.com>",
   "license": "MIT",
+  "bin": {
+    "wtrs": "./dist/bundle.js"
+  },
   "dependencies": {
     "@types/ora": "^3.2.0",
+    "commander": "^12.0.0",
     "ora": "^8.0.1",
     "pg": "^8.4.0",
     "reflect-metadata": "^0.1.13",
@@ -29,5 +33,8 @@
     "start": "node dist/bundle.js",
     "build": "webpack --mode production",
     "typeorm": "typeorm-ts-node-commonjs"
+  },
+  "engines": {
+    "node": ">=21.6.1"
   }
 }

@@ -1,39 +1,42 @@
-import { MapInfo } from 'thunderscript-client';
+import { MapInfo, ThunderClient } from 'thunderscript-client';
 import { Hudmsg as HudmsgEntity, Session } from './entities';
 import { AppDataSource } from './data-source';
 import ora, { Ora } from 'ora';
-import { client, Poller } from './poller';
-
+import { Poller } from './poller';
 export class WarThunderSession {
   spinner: Ora;
   mapInfo: MapInfo;
   session?: Session;
-  constructor(mapInfo: MapInfo) {
+  client: ThunderClient;
+  constructor(mapInfo: MapInfo, client: ThunderClient) {
     this.spinner = ora('Initializing Sesson').start();
     this.mapInfo = mapInfo;
+    this.client = client;
   }
-  async insertNewSession() {
-    const mission = await client.getMission();
+  async insertNewSession(sessionNamePrefix?: string) {
+    const mission = await this.client.getMission();
     const sesh = new Session(
-      process.argv[2] || `Test Session Name - ${new Date(Date.now()).toISOString()}`,
+      `${sessionNamePrefix || 'Test Session Name'} - ${new Date(Date.now()).toISOString()}`,
     );
     sesh.mission_status = mission.status;
     sesh.start_date = new Date(Date.now());
-    this.spinner.info(`Inserting new session: ${sesh.session_name}`);
     this.session = await AppDataSource.manager.save(sesh);
+    this.spinner.info(
+      `Created new session: ${this.session.session_name} with id: ${this.session.id}`,
+    );
   }
 
   async record() {
     if (!this.session) {
       throw new Error('Session failed to initialize');
     }
-    const poller = new Poller(this.session);
+    const poller = new Poller(this.session, this.mapInfo, this.client);
     this.spinner.succeed('Session Initialized');
     await poller.poll();
     await this.end();
   }
   async end() {
-    const mission = await client.getMission();
+    const mission = await this.client.getMission();
     this.spinner.start('Ending Session');
     AppDataSource.manager.update(Session, this.session?.id, {
       end_date: new Date(Date.now()),

@@ -1,8 +1,10 @@
 import ora from 'ora';
-import { client } from './poller';
 import { WarThunderSession } from './WarThunderSession';
-
-export async function waitForSession(): Promise<WarThunderSession> {
+import { RecordOptions } from '.';
+import { ThunderClient, thunderClient } from 'thunderscript-client';
+let client: ThunderClient;
+export async function waitForSession(options: RecordOptions): Promise<WarThunderSession> {
+  client = thunderClient(`http://localhost:${options.port}`);
   return new Promise((resolve, _reject) => {
     const spinner = ora('Waiting for War Thunder').start();
     const interval = setInterval(() => {
@@ -16,14 +18,14 @@ export async function waitForSession(): Promise<WarThunderSession> {
           }
           spinner.succeed('War Thunder is ready');
           clearInterval(interval);
-          const thunderSession = new WarThunderSession(res);
-          await thunderSession.insertNewSession();
+          const thunderSession = new WarThunderSession(res, client);
+          await thunderSession.insertNewSession(options.sessionName);
           resolve(thunderSession);
         })
         .catch((err) => {
           spinner.color = 'red';
           spinner.prefixText = '❌';
-          spinner.text = `Error: ${err.message}`;
+          spinner.text = `Waiting for War Thunder: ${err.message}`;
         });
     }, 5000);
   });

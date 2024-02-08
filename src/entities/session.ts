@@ -4,6 +4,8 @@ import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
 import { Indicators } from './indicators';
 import { Hudmsg } from './hudmsg';
 import { Gamechat } from './gamechat';
+import { MapObjects } from './map-objects';
+import { MapInfo } from './map-info';
 
 @Entity({ name: 'session' })
 export class Session {
@@ -30,6 +32,12 @@ export class Session {
 
   @OneToMany(() => Gamechat, (gamechats) => gamechats.session_id)
   gamechats?: Gamechat[];
+
+  @OneToMany(() => MapObjects, (map_objects) => map_objects.session_id)
+  map_objects?: MapObjects[];
+
+  @OneToMany(() => MapInfo, (map_info) => map_info.session_id)
+  map_info?: MapInfo[];
 
   constructor(session_name: string) {
     this.session_name = session_name;

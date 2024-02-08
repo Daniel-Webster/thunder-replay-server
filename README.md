@@ -63,3 +63,11 @@ Connecting to the database can be done using the following command:
 ```
 psql -U postgres -h 10.10.0.216
 ```
+
+## CLI Commands
+
+Record a session:
+
+```bash
+wtrs record --postgresUsername=postgres --postgresHost=10.10.0.216 --postgresPort=5432 --postgresPassword=`cat .secrets/postgres-user` --port 9222
+```
