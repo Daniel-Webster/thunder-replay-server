@@ -6,6 +6,8 @@ import { Hudmsg } from './hudmsg';
 import { Gamechat } from './gamechat';
 import { MapObjects } from './map-objects';
 import { MapInfo } from './map-info';
+import { State } from './state';
+import { Mission } from './mission';
 
 @Entity({ name: 'session' })
 export class Session {
@@ -37,7 +39,13 @@ export class Session {
   map_objects?: MapObjects[];
 
   @OneToMany(() => MapInfo, (map_info) => map_info.session_id)
-  map_info?: MapInfo[];
+  map_infos?: MapInfo[];
+
+  @OneToMany(() => State, (state) => state.session_id)
+  states?: State[];
+
+  @OneToMany(() => Mission, (mission) => mission.session_id)
+  missions?: Mission[];
 
   constructor(session_name: string) {
     this.session_name = session_name;

@@ -4,3 +4,6 @@ export { Hudmsg } from './hudmsg';
 export { Gamechat } from './gamechat';
 export { MapObjects } from './map-objects';
 export { MapInfo } from './map-info';
+export { State } from './state';
+export { Base } from './base';
+export { Mission } from './mission';

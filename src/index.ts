@@ -1,5 +1,5 @@
 import { AppDataSource, initializeAppDataSource as setupAppDataSource } from './data-source';
-import { waitForSession } from './waitForSession';
+import { waitForSession } from './war-thunder/waitForSession';
 import { Command } from 'commander';
 
 export type RecordOptions = {
@@ -9,6 +9,7 @@ export type RecordOptions = {
   postgresPort: number;
   postgresUsername: string;
   postgresPassword: string;
+  pollRate: number;
 };
 export async function record(options: RecordOptions) {
   await AppDataSource.initialize();
@@ -31,22 +32,21 @@ program
   );
 
 // Command to replay a session
-// program
-//   .name('wtrs')
-//   .command('replay')
-//   .description('Replay a session by launching a local rest server.')
-//   .option('-i, --sessionId <sessionId>', 'Session ID to replay')
-//   .option('-n, --sessionName <sessionName>', 'Session name to replay')
-//   .option('-p, --port <number>', 'port number', '8112')
-//   .action((options) => {
-//     if (options.sessionId) {
-//       console.log(`Replaying session with ID: ${options.sessionId}`);
-//     } else if (options.sessionName) {
-//       console.log(`Replaying session with name: ${options.sessionName}`);
-//     } else {
-//       console.log('Please provide either a session ID or session name');
-//     }
-//   });
+program
+  .command('replay')
+  .description('Replay a session by launching a local rest server.')
+  .option('-i, --sessionId <sessionId>', 'Session ID to replay')
+  .option('-n, --sessionName <sessionName>', 'Session name to replay')
+  .option('-p, --port <number>', 'port number', '8112')
+  .action((options) => {
+    if (options.sessionId) {
+      console.log(`Replaying session with ID: ${options.sessionId}`);
+    } else if (options.sessionName) {
+      console.log(`Replaying session with name: ${options.sessionName}`);
+    } else {
+      console.log('Please provide either a session ID or session name');
+    }
+  });
 
 // Command to record a session
 program
@@ -60,6 +60,7 @@ program
     'War Thunder localhost server port number (usually 8111 or 9222) (optional)',
     '8111',
   )
+  .option('--pollRate <number>', 'Poll rate in milliseconds (defaults to: 5000)', '5000')
   .option('--postgresPort <number>', 'Postgres port (defaults to: 5432)', '5432')
   .option('--postgresUsername <string>', 'Postgres username (defaults to postgres)', 'postgres')
   .requiredOption('--postgresHost <string>', 'Postgres host')

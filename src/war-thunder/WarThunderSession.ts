@@ -1,22 +1,31 @@
 import { MapInfo, ThunderClient } from 'thunderscript-client';
-import { Hudmsg as HudmsgEntity, Session } from './entities';
-import { AppDataSource } from './data-source';
+import { Session } from '../entities';
+import { AppDataSource } from '../data-source';
 import ora, { Ora } from 'ora';
 import { Poller } from './poller';
+
+export interface WarThunderSessionOptions {
+  mapInfo: MapInfo;
+  client: ThunderClient;
+  pollRate: number;
+}
+
 export class WarThunderSession {
   spinner: Ora;
   mapInfo: MapInfo;
   session?: Session;
   client: ThunderClient;
-  constructor(mapInfo: MapInfo, client: ThunderClient) {
+  pollRate: number;
+  constructor({ mapInfo, client, pollRate }: WarThunderSessionOptions) {
     this.spinner = ora('Initializing Sesson').start();
     this.mapInfo = mapInfo;
     this.client = client;
+    this.pollRate = pollRate;
   }
   async insertNewSession(sessionNamePrefix?: string) {
     const mission = await this.client.getMission();
     const sesh = new Session(
-      `${sessionNamePrefix || 'Test Session Name'} - ${new Date(Date.now()).toISOString()}`,
+      `${sessionNamePrefix || 'Untitled'} - ${new Date(Date.now()).toISOString()}`,
     );
     sesh.mission_status = mission.status;
     sesh.start_date = new Date(Date.now());
@@ -24,14 +33,21 @@ export class WarThunderSession {
     this.spinner.info(
       `Created new session: ${this.session.session_name} with id: ${this.session.id}`,
     );
+    return this.session;
   }
 
   async record() {
+    this.session = await this.insertNewSession();
     if (!this.session) {
       throw new Error('Session failed to initialize');
     }
-    const poller = new Poller(this.session, this.mapInfo, this.client);
-    this.spinner.succeed('Session Initialized');
+    const poller = new Poller({
+      pollRate: this.pollRate,
+      session: this.session,
+      client: this.client,
+      mapInfo: this.mapInfo,
+    });
+    this.spinner.succeed('Session Initialized, starting poller.');
     await poller.poll();
     await this.end();
   }
@@ -42,11 +58,8 @@ export class WarThunderSession {
       end_date: new Date(Date.now()),
       mission_status: mission.status,
     });
-    AppDataSource.manager
-      .count(HudmsgEntity, { where: { session_id: this.session } })
-      .then((count) => {
-        this.spinner.info(`Session ended with ${count} hudmsgs`);
-      });
-    this.spinner.succeed('Session Ended');
+    this.spinner.succeed(
+      `Session Saved: ${this.session?.session_name} - ${this.session?.id} - ${mission.status}`,
+    );
   }
 }
